@@ -2,10 +2,18 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function EnrollPage() {
+  const router = useRouter();
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
+
+  const handleContinue = () => {
+    if (selectedTrack) {
+      router.push(`/form?track=${selectedTrack}`);
+    }
+  };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#05170d] text-[#f4ede0]">
@@ -18,10 +26,10 @@ export default function EnrollPage() {
       />
 
       {/* Dark Green Gradient Overlay with Khaki Ambient Tints */}
-      <div className="fixed inset-0 bg-gradient-to-b from-[#051b0f]/92 via-[#072415]/90 to-[#04120a]/95 pointer-events-none" />
+      <div className="fixed inset-0 bg-linear-to-b from-[#051b0f]/92 via-[#072415]/90 to-[#04120a]/95 pointer-events-none" />
 
       {/* Ambient Glows */}
-      <div className="pointer-events-none fixed -top-40 left-1/2 h-96 w-[45rem] -translate-x-1/2 rounded-full bg-[#c8b27c]/10 blur-3xl" />
+      <div className="pointer-events-none fixed -top-40 left-1/2 h-96 w-180 -translate-x-1/2 rounded-full bg-[#c8b27c]/10 blur-3xl" />
       <div className="pointer-events-none fixed bottom-10 -right-20 h-96 w-96 rounded-full bg-[#13492c]/25 blur-3xl" />
 
       {/* Page Content */}
@@ -71,7 +79,7 @@ export default function EnrollPage() {
             <div className="flex items-center">
               {/* Step 1: Active */}
               <div className="flex items-center">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#c8b27c] to-[#b3985a] text-sm font-bold text-[#05180e] shadow-[0_0_15px_rgba(200,178,124,0.4)]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#c8b27c] to-[#b3985a] text-sm font-bold text-[#05180e] shadow-[0_0_15px_rgba(200,178,124,0.4)]">
                   1
                 </div>
 
@@ -105,27 +113,62 @@ export default function EnrollPage() {
                   Requirements
                 </span>
               </div>
+
+              <div className="mx-4 h-px flex-1 bg-[#c8b27c]/25" />
+
+              {/* Step 4 */}
+              <div className="flex items-center text-[#9f9175]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#c8b27c]/30 bg-[#04140a]/60 text-sm font-semibold">
+                  4
+                </div>
+
+                <span className="ml-3 hidden text-sm font-medium sm:block">
+                  Account
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Main Content Area */}
-        <section className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
+        <section className="mx-auto w-full max-w-5xl flex-1 px-6 py-10 sm:py-12">
           <div className="text-center">
-            {/* Status Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#c8b27c]/40 bg-[#092b18]/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#eddcb9] backdrop-blur-md shadow-lg shadow-black/20">
-              <span className="h-2 w-2 rounded-full bg-[#c8b27c]"></span>
-              Enrollment Application • S.Y. 2025–2026
+            {/* Status Pill Badge */}
+            <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-[#c8b27c]/40 bg-[#092b18]/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#eddcb9] backdrop-blur-md shadow-lg shadow-black/20">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#c8b27c] opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#c8b27c]"></span>
+              </span>
+              Senior High School Enrollment • S.Y. 2025–2026
             </div>
 
-            <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white drop-shadow-md sm:text-4xl md:text-5xl">
-              Choose Your Senior High Track
+            {/* School Name */}
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg sm:text-4xl md:text-5xl lg:text-6xl">
+              Anselmo A. Sandoval Memorial
+              <span className="mt-1 block bg-linear-to-r from-white via-[#f3ebd9] to-[#c8b27c] bg-clip-text text-transparent">
+                National High School
+              </span>
             </h1>
 
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[#ded4c3]/90 sm:text-lg">
-              Select the cluster of electives that best matches your interests,
-              skills, and future career path at Anselmo A. Sandoval Memorial National High School.
-            </p>
+            {/* Portal Subtitle */}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <span className="h-px w-10 bg-linear-to-r from-transparent to-[#c8b27c]/70 sm:w-16" />
+              <h2 className="text-lg font-semibold tracking-wide text-[#dbc89e] sm:text-xl md:text-2xl">
+                Online Enrollment System
+              </h2>
+              <span className="h-px w-10 bg-linear-to-l from-transparent to-[#c8b27c]/70 sm:w-16" />
+            </div>
+
+            {/* Step 1 Heading Box */}
+            <div className="mt-8 rounded-xl border border-[#c8b27c]/25 bg-[#072113]/70 p-5 backdrop-blur-md shadow-lg">
+              <h3 className="text-xl font-bold text-[#f5ebd7] sm:text-2xl">
+                Step 1: Choose Your Senior High Track
+              </h3>
+              <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-[#ded4c3]/90 sm:text-base">
+                Select the cluster of electives that best matches your interests,
+                skills, and future career path at Anselmo A. Sandoval Memorial National High School.
+              </p>
+            </div>
           </div>
 
           {/* Track Selection Cards */}
@@ -147,7 +190,7 @@ export default function EnrollPage() {
                 </div>
 
                 {selectedTrack === "academic" ? (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-[#c8b27c] to-[#b3985a] text-sm font-black text-[#05180e] shadow-md">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-r from-[#c8b27c] to-[#b3985a] text-sm font-black text-[#05180e] shadow-md">
                     ✓
                   </div>
                 ) : (
@@ -204,7 +247,7 @@ export default function EnrollPage() {
                 </div>
 
                 {selectedTrack === "techpro" ? (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-[#c8b27c] to-[#b3985a] text-sm font-black text-[#05180e] shadow-md">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-r from-[#c8b27c] to-[#b3985a] text-sm font-black text-[#05180e] shadow-md">
                     ✓
                   </div>
                 ) : (
@@ -258,10 +301,11 @@ export default function EnrollPage() {
 
             <button
               type="button"
+              onClick={handleContinue}
               disabled={!selectedTrack}
               className={`rounded-lg px-8 py-3 text-sm font-bold transition-all duration-300 ${
                 selectedTrack
-                  ? "bg-gradient-to-r from-[#c8b27c] via-[#d6c393] to-[#be9f5f] text-[#05180e] shadow-lg shadow-black/30 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,178,124,0.45)] cursor-pointer"
+                  ? "bg-linear-to-r from-[#c8b27c] via-[#d6c393] to-[#be9f5f] text-[#05180e] shadow-lg shadow-black/30 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(200,178,124,0.45)] cursor-pointer"
                   : "cursor-not-allowed border border-[#c8b27c]/15 bg-[#071d11]/60 text-[#67776b]"
               }`}
             >

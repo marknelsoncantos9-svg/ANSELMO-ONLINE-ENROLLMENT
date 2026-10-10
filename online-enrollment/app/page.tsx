@@ -13,10 +13,10 @@ export default function Home() {
       />
 
       {/* Dark Green Gradient Overlay with Khaki Ambient Tints */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#051b0f]/90 via-[#072415]/85 to-[#04120a]/95" />
+      <div className="absolute inset-0 bg-linear-to-b from-[#051b0f]/90 via-[#072415]/85 to-[#04120a]/95" />
 
       {/* Decorative Glow Elements */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[45rem] -translate-x-1/2 rounded-full bg-[#c8b27c]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-180 -translate-x-1/2 rounded-full bg-[#c8b27c]/10 blur-3xl" />
       <div className="pointer-events-none absolute top-1/3 -right-20 h-96 w-96 rounded-full bg-[#13492c]/30 blur-3xl" />
       <div className="pointer-events-none absolute bottom-10 -left-20 h-96 w-96 rounded-full bg-[#c8b27c]/10 blur-3xl" />
 
@@ -40,7 +40,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="hidden sm:block">
+              <div>
                 <p className="text-base font-bold tracking-wide text-white">
                   AASMNHS
                 </p>
@@ -50,13 +50,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Sign In Header Link */}
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-lg border border-[#c8b27c]/50 bg-[#0b291a]/60 px-5 py-2 text-sm font-semibold text-[#f4ede0] backdrop-blur-sm transition-all duration-200 hover:border-[#c8b27c] hover:bg-[#c8b27c] hover:text-[#05190e] hover:shadow-[0_0_15px_rgba(200,178,124,0.35)]"
-            >
-              Sign In
-            </Link>
           </div>
         </header>
 
@@ -76,18 +69,18 @@ export default function Home() {
             {/* School Name */}
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg sm:text-5xl md:text-6xl lg:text-7xl">
               Anselmo A. Sandoval Memorial
-              <span className="mt-1 block bg-gradient-to-r from-white via-[#f3ebd9] to-[#c8b27c] bg-clip-text text-transparent">
+              <span className="mt-1 block bg-linear-to-r from-white via-[#f3ebd9] to-[#c8b27c] bg-clip-text text-transparent">
                 National High School
               </span>
             </h1>
 
             {/* Portal Subtitle */}
             <div className="mt-5 flex items-center justify-center gap-3">
-              <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#c8b27c]/70 sm:w-16" />
+              <span className="h-px w-10 bg-linear-to-r from-transparent to-[#c8b27c]/70 sm:w-16" />
               <h2 className="text-xl font-semibold tracking-wide text-[#dbc89e] sm:text-2xl md:text-3xl">
                 Online Enrollment System
               </h2>
-              <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#c8b27c]/70 sm:w-16" />
+              <span className="h-px w-10 bg-linear-to-l from-transparent to-[#c8b27c]/70 sm:w-16" />
             </div>
 
             {/* Description */}
@@ -102,7 +95,7 @@ export default function Home() {
               {/* Primary CTA (Khaki with Dark Green Text) */}
               <Link
                 href="/enroll"
-                className="group flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#c8b27c] via-[#d6c393] to-[#be9f5f] px-8 py-3.5 text-center font-bold text-[#05180e] shadow-lg shadow-black/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(200,178,124,0.45)] sm:w-auto"
+                className="group flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-[#c8b27c] via-[#d6c393] to-[#be9f5f] px-8 py-3.5 text-center font-bold text-[#05180e] shadow-lg shadow-black/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(200,178,124,0.45)] sm:w-auto"
               >
                 <span>Enroll Now</span>
                 <svg
@@ -125,7 +118,7 @@ export default function Home() {
                 href="/login"
                 className="flex w-full items-center justify-center rounded-lg border-2 border-[#c8b27c]/60 bg-[#082415]/80 px-8 py-3.5 text-center font-semibold text-[#f5ebd7] backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-[#c8b27c] hover:bg-[#c8b27c]/20 hover:text-white sm:w-auto"
               >
-                Student / Parent Sign In
+                Sign In
               </Link>
             </div>
 
