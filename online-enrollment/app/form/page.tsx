@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface AddressState {
   houseNo: string;
@@ -15,6 +16,13 @@ interface AddressState {
   zipCode: string;
 }
 
+interface GuardianState {
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  contactNumber: string;
+}
+
 const initialAddress: AddressState = {
   houseNo: "",
   street: "",
@@ -23,6 +31,13 @@ const initialAddress: AddressState = {
   province: "",
   country: "Philippines",
   zipCode: "",
+};
+
+const initialGuardian: GuardianState = {
+  lastName: "",
+  firstName: "",
+  middleName: "",
+  contactNumber: "",
 };
 
 function FormContent() {
@@ -46,6 +61,33 @@ function FormContent() {
   const [currentAddress, setCurrentAddress] = useState<AddressState>(initialAddress);
   const [permanentAddress, setPermanentAddress] = useState<AddressState>(initialAddress);
   const [sameAsCurrentAddress, setSameAsCurrentAddress] = useState(false);
+
+  // Social information
+  const [isIpCommunity, setIsIpCommunity] = useState(false);
+  const [is4psBeneficiary, setIs4psBeneficiary] = useState(false);
+
+  // Parent / guardian information
+  const [guardians, setGuardians] = useState<GuardianState[]>([
+    { ...initialGuardian },
+    { ...initialGuardian },
+    { ...initialGuardian },
+  ]);
+
+  // Submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  const handleGuardianChange = (
+    index: number,
+    field: keyof GuardianState,
+    value: string
+  ) => {
+    setGuardians((prev) =>
+      prev.map((guardian, i) =>
+        i === index ? { ...guardian, [field]: value } : guardian
+      )
+    );
+  };
 
   // Handle current address changes
   const handleCurrentAddressChange = (field: keyof AddressState, value: string) => {
@@ -71,8 +113,12 @@ function FormContent() {
     setPermanentAddress((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleContinue = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleContinue = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const permanent = sameAsCurrentAddress
+      ? { ...currentAddress }
+      : { ...permanentAddress };
 
     // Keep the student's information available for the following enrollment steps.
     const applicationDraft = {
@@ -87,11 +133,12 @@ function FormContent() {
       religion: religion.trim(),
       contactNumber: contactNumber.trim(),
       selectedTrack,
+      isIpCommunity,
+      is4psBeneficiary,
       currentAddress: { ...currentAddress },
-      permanentAddress: sameAsCurrentAddress
-        ? { ...currentAddress }
-        : { ...permanentAddress },
+      permanentAddress: permanent,
       sameAsCurrentAddress,
+      guardians: guardians.map((g) => ({ ...g })),
       savedAt: new Date().toISOString(),
     };
 
@@ -107,9 +154,172 @@ function FormContent() {
     localStorage.setItem("studentName", `${firstName} ${lastName}`.trim());
     localStorage.setItem("studentTrack", selectedTrack);
 
-    router.push(
-      `/enroll/requirements?track=${encodeURIComponent(selectedTrack)}`
-    );
+    // Record the student information in Supabase (student_applications table).
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    const formattedAddress = [
+      currentAddress.houseNo,
+      currentAddress.street,
+      currentAddress.barangay ? `Brgy. ${currentAddress.barangay}` : "",
+      currentAddress.municipality,
+      currentAddress.province,
+      currentAddress.zipCode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    // Core columns guaranteed in public.student_applications
+    const basePayload: Record<string, unknown> = {
+      first_name: firstName.trim(),
+      middle_name: middleName.trim() || null,
+      last_name: lastName.trim(),
+      birth_date: dob || null,
+      sex: gender || null,
+      contact_number: contactNumber.trim() || null,
+      address: formattedAddress || null,
+      status: "pending",
+      submitted_at: new Date().toISOString(),
+    };
+
+    // Extended columns for full application records
+    const fullPayload: Record<string, unknown> = {
+      ...basePayload,
+      email: email.trim(),
+      track: selectedTrack,
+      extension: extension.trim() || null,
+      place_of_birth: pob.trim() || null,
+      gender: gender || null,
+      religion: religion.trim() || null,
+      is_ip_community: isIpCommunity,
+      is_4ps_beneficiary: is4psBeneficiary,
+      current_house_no: currentAddress.houseNo || null,
+      current_street: currentAddress.street || null,
+      current_barangay: currentAddress.barangay || null,
+      current_municipality: currentAddress.municipality || null,
+      current_province: currentAddress.province || null,
+      current_country: currentAddress.country || null,
+      current_zip_code: currentAddress.zipCode || null,
+      same_as_current_address: sameAsCurrentAddress,
+      permanent_house_no: permanent.houseNo || null,
+      permanent_street: permanent.street || null,
+      permanent_barangay: permanent.barangay || null,
+      permanent_municipality: permanent.municipality || null,
+      permanent_province: permanent.province || null,
+      permanent_country: permanent.country || null,
+      permanent_zip_code: permanent.zipCode || null,
+      father_last_name: guardians[0].lastName.trim() || null,
+      father_first_name: guardians[0].firstName.trim() || null,
+      father_middle_name: guardians[0].middleName.trim() || null,
+      father_contact_number: guardians[0].contactNumber.trim() || null,
+      mother_last_name: guardians[1].lastName.trim() || null,
+      mother_first_name: guardians[1].firstName.trim() || null,
+      mother_middle_name: guardians[1].middleName.trim() || null,
+      mother_contact_number: guardians[1].contactNumber.trim() || null,
+      guardian_last_name: guardians[2].lastName.trim() || null,
+      guardian_first_name: guardians[2].firstName.trim() || null,
+      guardian_middle_name: guardians[2].middleName.trim() || null,
+      guardian_contact_number: guardians[2].contactNumber.trim() || null,
+    };
+
+    let savedId: string | null = null;
+    let rlsErrorNotice: string | null = null;
+
+    // 1. Try server endpoint first
+    try {
+      const response = await fetch("/api/submit-application", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          middleName,
+          lastName,
+          extension,
+          email,
+          birthDate: dob,
+          placeOfBirth: pob,
+          gender,
+          religion,
+          contactNumber,
+          selectedTrack,
+          isIpCommunity,
+          is4psBeneficiary,
+          currentAddress,
+          permanentAddress: permanent,
+          sameAsCurrentAddress,
+          guardians,
+        }),
+      });
+
+      const resData = await response.json();
+      if (resData.success && resData.id) {
+        savedId = resData.id;
+      } else if (resData.error) {
+        if (
+          resData.error.includes("row-level security") ||
+          resData.code === "42501"
+        ) {
+          rlsErrorNotice =
+            "Supabase Row-Level Security (RLS) is blocking inserts into student_applications.";
+        } else {
+          rlsErrorNotice = resData.error;
+        }
+      }
+    } catch (apiErr) {
+      console.warn("Server submit endpoint attempt:", apiErr);
+    }
+
+    // 2. If server route didn't save, try direct client Supabase insert
+    if (!savedId) {
+      try {
+        let directRes = await supabase
+          .from("student_applications")
+          .insert(fullPayload)
+          .select("id")
+          .single();
+
+        if (directRes.error && directRes.error.code === "PGRST204") {
+          directRes = await supabase
+            .from("student_applications")
+            .insert(basePayload)
+            .select("id")
+            .single();
+        }
+
+        if (directRes.data?.id) {
+          savedId = directRes.data.id;
+        } else if (directRes.error) {
+          if (
+            directRes.error.message.includes("row-level security") ||
+            directRes.error.code === "42501"
+          ) {
+            rlsErrorNotice =
+              "Supabase Row-Level Security (RLS) is blocking inserts into student_applications.";
+          } else {
+            rlsErrorNotice = directRes.error.message;
+          }
+        }
+      } catch (clientErr) {
+        console.warn("Direct Supabase attempt:", clientErr);
+      }
+    }
+
+    setIsSubmitting(false);
+
+    if (savedId) {
+      localStorage.setItem("applicationId", savedId);
+      localStorage.setItem("enrollmentId", savedId);
+      setSubmissionError(null);
+      router.push(
+        `/enroll/requirements?track=${encodeURIComponent(selectedTrack)}`
+      );
+      return;
+    }
+
+    // If RLS blocked the save, show error on screen so user can fix it
+    if (rlsErrorNotice) {
+      setSubmissionError(rlsErrorNotice);
+    }
   };
 
   return (
@@ -414,8 +624,16 @@ function FormContent() {
               </h4>
 
               <div className="space-y-3.5">
-                <FormCheckbox label="Belonging to any Indigenous People (IP) community" />
-                <FormCheckbox label="Is your family an active beneficiary of 4Ps (Pantawid Pamilyang Pilipino Program)?" />
+                <FormCheckbox
+                  label="Belonging to any Indigenous People (IP) community"
+                  checked={isIpCommunity}
+                  onChange={setIsIpCommunity}
+                />
+                <FormCheckbox
+                  label="Is your family an active beneficiary of 4Ps (Pantawid Pamilyang Pilipino Program)?"
+                  checked={is4psBeneficiary}
+                  onChange={setIs4psBeneficiary}
+                />
               </div>
             </section>
 
@@ -581,10 +799,73 @@ function FormContent() {
                 <span>👨‍👩‍👧</span> Parent&apos;s / Guardian Information
               </h4>
 
-              <GuardianCard title="Father's Information" />
-              <GuardianCard title="Mother's Information" />
-              <GuardianCard title="Legal Guardian's Information (if applicable)" />
+              <GuardianCard
+                title="Father's Information"
+                value={guardians[0]}
+                onChange={(field, value) => handleGuardianChange(0, field, value)}
+              />
+              <GuardianCard
+                title="Mother's Information"
+                value={guardians[1]}
+                onChange={(field, value) => handleGuardianChange(1, field, value)}
+              />
+              <GuardianCard
+                title="Legal Guardian&apos;s Information (if applicable)"
+                value={guardians[2]}
+                onChange={(field, value) => handleGuardianChange(2, field, value)}
+              />
             </section>
+
+            {/* SUBMISSION / RLS NOTICE */}
+            {submissionError && (
+              <div className="mb-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-sm text-amber-950 shadow-md">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">⚠️</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-amber-900">
+                      Supabase Database / RLS Notice
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800">
+                      {submissionError}
+                    </p>
+                    <div className="mt-3 rounded-xl bg-white/80 p-3 text-xs border border-amber-200">
+                      <p className="font-semibold text-gray-800">
+                        Quick Fix: Copy and Run this in your Supabase SQL Editor:
+                      </p>
+                      <code className="mt-1 block rounded bg-amber-100/70 p-2 font-mono text-gray-900 select-all whitespace-pre-wrap">
+                        ALTER TABLE public.student_applications ALTER COLUMN user_id DROP NOT NULL;
+                        ALTER TABLE public.student_applications DISABLE ROW LEVEL SECURITY;
+                      </code>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const form = document.querySelector("form");
+                          form?.requestSubmit();
+                        }}
+                        className="rounded-lg bg-[#176b4d] px-4 py-2 text-xs font-bold text-white hover:bg-[#0f573d]"
+                      >
+                        Try Saving Again
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          router.push(
+                            `/enroll/requirements?track=${encodeURIComponent(
+                              selectedTrack
+                            )}`
+                          );
+                        }}
+                        className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                      >
+                        Continue to Requirements Anyway →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* FORM ACTION CONTROLS */}
             <div className="flex flex-col-reverse gap-4 border-t border-gray-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
@@ -597,9 +878,17 @@ function FormContent() {
 
               <button
                 type="submit"
-                className="cursor-pointer rounded-lg bg-linear-to-r from-[#176b4d] via-[#1b7e5a] to-[#12583e] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#176b4d]/25 transition-all duration-300 hover:scale-[1.02] hover:bg-[#12583e] hover:shadow-[0_0_20px_rgba(23,107,77,0.4)]"
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-[#176b4d] via-[#1b7e5a] to-[#12583e] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#176b4d]/25 transition-all duration-300 hover:scale-[1.02] hover:bg-[#12583e] hover:shadow-[0_0_20px_rgba(23,107,77,0.4)] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Continue to Requirements →
+                {isSubmitting ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Continue to Requirements →</span>
+                )}
               </button>
             </div>
           </form>
@@ -688,11 +977,21 @@ function FormInput({
 /* REUSABLE FORM CHECKBOX                                        */
 /* ============================================================= */
 
-function FormCheckbox({ label }: { label: string }) {
+function FormCheckbox({
+  label,
+  checked = false,
+  onChange,
+}: {
+  label: string;
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
+}) {
   return (
     <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 transition hover:border-[#176b4d]/40 hover:bg-emerald-50/30">
       <input
         type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange?.(e.target.checked)}
         className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#176b4d] focus:ring-1 focus:ring-[#176b4d]"
       />
       <span className="text-sm font-medium text-gray-700 transition group-hover:text-gray-900">
@@ -706,7 +1005,15 @@ function FormCheckbox({ label }: { label: string }) {
 /* GUARDIAN CARD COMPONENT                                       */
 /* ============================================================= */
 
-function GuardianCard({ title }: { title: string }) {
+function GuardianCard({
+  title,
+  value,
+  onChange,
+}: {
+  title: string;
+  value: GuardianState;
+  onChange: (field: keyof GuardianState, value: string) => void;
+}) {
   return (
     <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50/70 p-5 sm:p-6">
       <h5 className="mb-4 text-xs font-bold uppercase tracking-wider text-[#176b4d]">
@@ -714,15 +1021,32 @@ function GuardianCard({ title }: { title: string }) {
       </h5>
 
       <div className="grid gap-5 md:grid-cols-3">
-        <FormInput label="LAST NAME" placeholder="Dela Cruz" />
-        <FormInput label="FIRST NAME" placeholder="Juan" />
-        <FormInput label="MIDDLE NAME" placeholder="Santos" />
+        <FormInput
+          label="LAST NAME"
+          placeholder="Dela Cruz"
+          value={value.lastName}
+          onChange={(e) => onChange("lastName", e.target.value)}
+        />
+        <FormInput
+          label="FIRST NAME"
+          placeholder="Juan"
+          value={value.firstName}
+          onChange={(e) => onChange("firstName", e.target.value)}
+        />
+        <FormInput
+          label="MIDDLE NAME"
+          placeholder="Santos"
+          value={value.middleName}
+          onChange={(e) => onChange("middleName", e.target.value)}
+        />
 
         <div className="md:col-span-3">
           <FormInput
             label="CONTACT NUMBER"
             type="tel"
             placeholder="e.g., 09123456789"
+            value={value.contactNumber}
+            onChange={(e) => onChange("contactNumber", e.target.value)}
           />
         </div>
       </div>

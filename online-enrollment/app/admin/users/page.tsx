@@ -1,49 +1,167 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Student = {
-    id: number;
+    id: string;
     name: string;
     email: string;
     strand: string;
     status: string;
     requirements: string;
+    reportCard: boolean;
+    birthCertificate: boolean;
+    otherRequirement: boolean;
 };
 
-const students: Student[] = [
-    {
-        id: 1,
-        name: "Juan Dela Cruz",
-        email: "juan@email.com",
-        strand: "STEM",
-        status: "Pending",
-        requirements: "2 / 3",
-    },
-    {
-        id: 2,
-        name: "Maria Santos",
-        email: "maria@email.com",
-        strand: "ABM",
-        status: "Approved",
-        requirements: "3 / 3",
-    },
-    {
-        id: 3,
-        name: "Pedro Reyes",
-        email: "pedro@email.com",
-        strand: "ICT",
-        status: "Pending",
-        requirements: "1 / 3",
-    },
-];
+type ApplicationRow = {
+    id: string;
+    email?: string | null;
+    first_name?: string | null;
+    middle_name?: string | null;
+    last_name?: string | null;
+    track?: string | null;
+    status?: string | null;
+    address?: string | null;
+    contact_number?: string | null;
+    report_card_url?: string | null;
+    birth_certificate_url?: string | null;
+    other_requirement_url?: string | null;
+    submitted_at?: string | null;
+    updated_at?: string | null;
+    created_at?: string | null;
+};
 
 export default function ManageUsersPage() {
     const router = useRouter();
 
+    const [students, setStudents] = useState<Student[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
     const [selectedStudent, setSelectedStudent] =
         useState<Student | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+
+            const { data, error } = await supabase
+                .from("student_applications")
+                .select("*");
+
+            if (!isMounted) return;
+
+            if (error) {
+                console.error("Failed to load student applications:", error);
+                setLoadError(error.message);
+                setIsLoading(false);
+                return;
+            }
+
+            const rows = (data || []) as ApplicationRow[];
+
+            rows.sort((a, b) => {
+                const timeA = new Date(a.submitted_at || a.created_at || a.updated_at || 0).getTime();
+                const timeB = new Date(b.submitted_at || b.created_at || b.updated_at || 0).getTime();
+                return timeB - timeA;
+            });
+
+            setStudents(
+                rows.map((row) => {
+                    const reportCard = Boolean(row.report_card_url);
+                    const birthCertificate = Boolean(row.birth_certificate_url);
+                    const otherRequirement = Boolean(row.other_requirement_url);
+                    const submitted = [reportCard, birthCertificate, otherRequirement].filter(Boolean).length;
+
+                    return {
+                        id: row.id,
+                        name: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Unnamed Student",
+                        email: row.email || "-",
+                        strand: row.track || "-",
+                        status: row.status || "Pending",
+                        requirements: `${submitted} / 3`,
+                        reportCard,
+                        birthCertificate,
+                        otherRequirement,
+                    };
+                })
+            );
+            setIsLoading(false);
+        };
+
+        load();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const updateApplicationStatus = async (id: string, newStatus: string) => {
+        setIsUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from("student_applications")
+                .update({ status: newStatus })
+                .eq("id", id);
+
+            if (error) throw error;
+
+            setStudents((prev) =>
+                prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
+            );
+            if (selectedStudent && selectedStudent.id === id) {
+                setSelectedStudent((prev) => (prev ? { ...prev, status: newStatus } : null));
+            }
+        } catch (err) {
+            console.error("Failed to update status:", err);
+            alert("Could not update status. Check permissions or network.");
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const [isSendingCredentials, setIsSendingCredentials] = useState(false);
+
+    const handleSendCredentials = async (student: Student) => {
+        if (!student.email || !student.email.includes("@")) {
+            alert("This student does not have a valid email address on file.");
+            return;
+        }
+
+        setIsSendingCredentials(true);
+        try {
+            const res = await fetch("/api/send-account", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: student.email,
+                    studentName: student.name,
+                    track: student.strand,
+                }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert(
+                    `✓ Password generated & registered for ${student.name}!\n\nEmail: ${student.email}\nTemporary Password: ${data.password}\n\nStatus: ${data.message}`
+                );
+            } else {
+                alert(`Could not send credentials: ${data.error || "Unknown error"}`);
+            }
+        } catch (err) {
+            console.error("Error sending credentials:", err);
+            alert("Network error sending credentials.");
+        } finally {
+            setIsSendingCredentials(false);
+        }
+    };
 
     return (
         <main className="min-h-screen bg-[#f3f7f5]">
@@ -89,7 +207,7 @@ export default function ManageUsersPage() {
                             Total Enrollees
                         </p>
                         <p className="mt-2 text-3xl font-bold text-[#176b4d]">
-                            125
+                            {students.length}
                         </p>
                     </div>
 
@@ -98,7 +216,7 @@ export default function ManageUsersPage() {
                             Pending Requirements
                         </p>
                         <p className="mt-2 text-3xl font-bold text-orange-500">
-                            32
+                            {students.filter((s) => s.status !== "Approved").length}
                         </p>
                     </div>
 
@@ -107,7 +225,7 @@ export default function ManageUsersPage() {
                             Approved Enrollments
                         </p>
                         <p className="mt-2 text-3xl font-bold text-blue-600">
-                            93
+                            {students.filter((s) => s.status === "Approved").length}
                         </p>
                     </div>
 
@@ -141,7 +259,31 @@ export default function ManageUsersPage() {
 
                             <tbody className="divide-y">
 
-                                {students.map((student) => (
+                                {isLoading && (
+                                    <tr>
+                                        <td colSpan={6} className="px-5 py-10 text-center text-gray-500">
+                                            Loading enrollment records...
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {!isLoading && loadError && (
+                                    <tr>
+                                        <td colSpan={6} className="px-5 py-10 text-center text-red-600">
+                                            Could not load records: {loadError}
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {!isLoading && !loadError && students.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-5 py-10 text-center text-gray-500">
+                                            No enrollment records yet.
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {!isLoading && !loadError && students.map((student) => (
 
                                     <tr key={student.id} className="hover:bg-gray-50">
 
@@ -162,7 +304,9 @@ export default function ManageUsersPage() {
                                             <span
                                                 className={`rounded-full px-3 py-1 text-xs font-semibold ${student.status === "Approved"
                                                         ? "bg-green-100 text-green-700"
-                                                        : "bg-orange-100 text-orange-700"
+                                                        : student.status === "Rejected"
+                                                            ? "bg-red-100 text-red-700"
+                                                            : "bg-orange-100 text-orange-700"
                                                     }`}
                                             >
                                                 {student.status}
@@ -281,22 +425,22 @@ export default function ManageUsersPage() {
 
                                 <div className="flex justify-between">
                                     <span>Report Card</span>
-                                    <span className="font-semibold text-green-600">
-                                        Submitted
+                                    <span className={`font-semibold ${selectedStudent.reportCard ? "text-green-600" : "text-orange-500"}`}>
+                                        {selectedStudent.reportCard ? "Submitted" : "Pending"}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between">
                                     <span>Birth Certificate</span>
-                                    <span className="font-semibold text-green-600">
-                                        Submitted
+                                    <span className={`font-semibold ${selectedStudent.birthCertificate ? "text-green-600" : "text-orange-500"}`}>
+                                        {selectedStudent.birthCertificate ? "Submitted" : "Pending"}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between">
                                     <span>Other Requirements</span>
-                                    <span className="font-semibold text-orange-500">
-                                        Pending
+                                    <span className={`font-semibold ${selectedStudent.otherRequirement ? "text-green-600" : "text-orange-500"}`}>
+                                        {selectedStudent.otherRequirement ? "Submitted" : "Pending"}
                                     </span>
                                 </div>
 
@@ -304,17 +448,38 @@ export default function ManageUsersPage() {
 
                         </div>
 
-                        <div className="mt-6 flex justify-end gap-3">
+                        <div className="mt-6 flex flex-wrap justify-end gap-3">
 
                             <button
                                 onClick={() => setSelectedStudent(null)}
-                                className="rounded-lg border px-5 py-2 text-sm font-semibold"
+                                className="rounded-lg border px-5 py-2 text-sm font-semibold hover:bg-gray-50"
                             >
                                 Close
                             </button>
 
-                            <button className="rounded-lg bg-[#176b4d] px-5 py-2 text-sm font-semibold text-white">
-                                Approve Enrollment
+                            <button
+                                disabled={isUpdatingStatus || selectedStudent.status === "Rejected"}
+                                onClick={() => updateApplicationStatus(selectedStudent.id, "Rejected")}
+                                className="rounded-lg border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                disabled={isSendingCredentials || !selectedStudent.email}
+                                onClick={() => handleSendCredentials(selectedStudent)}
+                                className="rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                                title="Send temporary password and login credentials via email"
+                            >
+                                {isSendingCredentials ? "Sending Email..." : "✉️ Send Password Email"}
+                            </button>
+
+                            <button
+                                disabled={isUpdatingStatus || selectedStudent.status === "Approved"}
+                                onClick={() => updateApplicationStatus(selectedStudent.id, "Approved")}
+                                className="rounded-lg bg-[#176b4d] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0f573d] disabled:opacity-50"
+                            >
+                                {isUpdatingStatus ? "Updating..." : "Approve Enrollment"}
                             </button>
 
                         </div>
